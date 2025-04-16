@@ -300,7 +300,7 @@ export default function SettingsPage() {
                 </div>
               </div>
               
-              {/* Mini legend */}
+              {/* Mini legend for Income Distribution */}
               <div className="flex flex-wrap gap-3 text-xs">
                 <div className="flex items-center">
                   <div className="w-2 h-2 rounded-sm bg-indigo-500 mr-1"></div>
@@ -372,7 +372,7 @@ export default function SettingsPage() {
                 ></div>
               </div>
               
-              {/* Mini legend */}
+              {/* Mini legend for Leftover Action */}
               <div className="flex flex-wrap gap-3 text-xs">
                 <div className="flex items-center">
                   <div className={`w-2 h-2 rounded-sm ${
@@ -380,8 +380,8 @@ export default function SettingsPage() {
                     formData.leftoverAction === 'expenses' ? 'bg-purple-500' : 
                     formData.leftoverAction === 'investments' ? 'bg-emerald-500' : 
                     'bg-gray-400'
-                  }`}></div>
-                  <span className="text-gray-600 ml-1">
+                  } mr-1`}></div>
+                  <span className="text-gray-600">
                     {formData.leftoverAction ? 
                       `Sending leftovers to ${formData.leftoverAction}` : 
                       'No allocation set'
@@ -434,7 +434,7 @@ export default function SettingsPage() {
               <div className="flex flex-wrap gap-3 text-xs">
                 <div className="flex items-center">
                   <div className="w-2 h-2 rounded-sm bg-purple-500 mr-1"></div>
-                  <span className="text-gray-600 ml-1">
+                  <span className="text-gray-600">
                     Last updated: Never
                   </span>
                 </div>
@@ -1045,9 +1045,16 @@ export default function SettingsPage() {
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
                 <button
                   type="button"
-                  className={`flex flex-col items-center p-5 rounded-lg border ${formData.leftoverAction === 'savings' ? 'bg-indigo-50 border-indigo-200 ring-2 ring-indigo-500' : 'bg-white border-gray-200 hover:bg-gray-50'} transition-colors`}
+                  className={`relative flex flex-col items-center p-5 rounded-lg border ${formData.leftoverAction === 'savings' ? 'bg-indigo-50 border-indigo-200 ring-2 ring-indigo-500' : 'bg-white border-gray-200 hover:bg-gray-50'} transition-colors h-full`}
                   onClick={() => setFormData({...formData, leftoverAction: 'savings'})}
                 >
+                  <div className="absolute top-3 right-3">
+                    <div className={`w-5 h-5 rounded-full ${formData.leftoverAction === 'savings' ? 'bg-indigo-500' : 'bg-gray-200'} flex items-center justify-center`}>
+                      {formData.leftoverAction === 'savings' && (
+                        <div className="w-2 h-2 bg-white rounded-full"></div>
+                      )}
+                    </div>
+                  </div>
                   <div className={`w-12 h-12 rounded-full ${formData.leftoverAction === 'savings' ? 'bg-indigo-100' : 'bg-gray-100'} flex items-center justify-center mb-3`}>
                     <PiggyBank className={`h-6 w-6 ${formData.leftoverAction === 'savings' ? 'text-indigo-600' : 'text-gray-500'}`} />
                   </div>
@@ -1057,18 +1064,20 @@ export default function SettingsPage() {
                   <p className={`text-xs text-center ${formData.leftoverAction === 'savings' ? 'text-indigo-700' : 'text-gray-500'}`}>
                     Add leftover funds to your savings for emergencies
                   </p>
-                  {formData.leftoverAction === 'savings' && (
-                    <div className="mt-2">
-                      <Check className="h-5 w-5 text-indigo-600" />
-                    </div>
-                  )}
                 </button>
                 
                 <button
                   type="button"
-                  className={`flex flex-col items-center p-5 rounded-lg border ${formData.leftoverAction === 'expenses' ? 'bg-purple-50 border-purple-200 ring-2 ring-purple-500' : 'bg-white border-gray-200 hover:bg-gray-50'} transition-colors`}
+                  className={`relative flex flex-col items-center p-5 rounded-lg border ${formData.leftoverAction === 'expenses' ? 'bg-purple-50 border-purple-200 ring-2 ring-purple-500' : 'bg-white border-gray-200 hover:bg-gray-50'} transition-colors h-full`}
                   onClick={() => setFormData({...formData, leftoverAction: 'expenses'})}
                 >
+                  <div className="absolute top-3 right-3">
+                    <div className={`w-5 h-5 rounded-full ${formData.leftoverAction === 'expenses' ? 'bg-purple-500' : 'bg-gray-200'} flex items-center justify-center`}>
+                      {formData.leftoverAction === 'expenses' && (
+                        <div className="w-2 h-2 bg-white rounded-full"></div>
+                      )}
+                    </div>
+                  </div>
                   <div className={`w-12 h-12 rounded-full ${formData.leftoverAction === 'expenses' ? 'bg-purple-100' : 'bg-gray-100'} flex items-center justify-center mb-3`}>
                     <CreditCard className={`h-6 w-6 ${formData.leftoverAction === 'expenses' ? 'text-purple-600' : 'text-gray-500'}`} />
                   </div>
@@ -1078,18 +1087,20 @@ export default function SettingsPage() {
                   <p className={`text-xs text-center ${formData.leftoverAction === 'expenses' ? 'text-purple-700' : 'text-gray-500'}`}>
                     Allocate leftovers to your monthly expenses
                   </p>
-                  {formData.leftoverAction === 'expenses' && (
-                    <div className="mt-2">
-                      <Check className="h-5 w-5 text-purple-600" />
-                    </div>
-                  )}
                 </button>
                 
                 <button
                   type="button"
-                  className={`flex flex-col items-center p-5 rounded-lg border ${formData.leftoverAction === 'investments' ? 'bg-emerald-50 border-emerald-200 ring-2 ring-emerald-500' : 'bg-white border-gray-200 hover:bg-gray-50'} transition-colors`}
+                  className={`relative flex flex-col items-center p-5 rounded-lg border ${formData.leftoverAction === 'investments' ? 'bg-emerald-50 border-emerald-200 ring-2 ring-emerald-500' : 'bg-white border-gray-200 hover:bg-gray-50'} transition-colors h-full`}
                   onClick={() => setFormData({...formData, leftoverAction: 'investments'})}
                 >
+                  <div className="absolute top-3 right-3">
+                    <div className={`w-5 h-5 rounded-full ${formData.leftoverAction === 'investments' ? 'bg-emerald-500' : 'bg-gray-200'} flex items-center justify-center`}>
+                      {formData.leftoverAction === 'investments' && (
+                        <div className="w-2 h-2 bg-white rounded-full"></div>
+                      )}
+                    </div>
+                  </div>
                   <div className={`w-12 h-12 rounded-full ${formData.leftoverAction === 'investments' ? 'bg-emerald-100' : 'bg-gray-100'} flex items-center justify-center mb-3`}>
                     <TrendingUp className={`h-6 w-6 ${formData.leftoverAction === 'investments' ? 'text-emerald-600' : 'text-gray-500'}`} />
                   </div>
@@ -1099,11 +1110,6 @@ export default function SettingsPage() {
                   <p className={`text-xs text-center ${formData.leftoverAction === 'investments' ? 'text-emerald-700' : 'text-gray-500'}`}>
                     Direct leftovers to investments for growth
                   </p>
-                  {formData.leftoverAction === 'investments' && (
-                    <div className="mt-2">
-                      <Check className="h-5 w-5 text-emerald-600" />
-                    </div>
-                  )}
                 </button>
               </div>
             </div>

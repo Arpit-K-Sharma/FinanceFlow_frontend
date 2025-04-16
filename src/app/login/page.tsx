@@ -233,7 +233,7 @@ export default function LoginPage() {
                   value={formData.email}
                   onChange={(value) => setFormData({ ...formData, email: value })}
                   required
-                  placeholder="you@example.com"
+                  placeholder="Enter your email address"
                   icon={
                     <svg className="h-5 w-5 text-gray-400" viewBox="0 0 20 20" fill="currentColor">
                       <path d="M2.003 5.884L10 9.882l7.997-3.998A2 2 0 0016 4H4a2 2 0 00-1.997 1.884z" />

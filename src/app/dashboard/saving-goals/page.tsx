@@ -4,23 +4,26 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { Button } from '../../components/Button';
 import { Input } from '../../components/Input';
-import { PiggyBank, DollarSign, Pencil, Trash2, Plus, X, Calendar, Target, Check, AlertTriangle } from 'lucide-react';
+import { PiggyBank, DollarSign, Pencil, Trash2, Plus, X, Calendar, Target, Check, AlertTriangle, ArrowLeftRight } from 'lucide-react';
 import api from '../../utils/axios';
 import { useToast } from '../../../components/ui/toast';
+import { TransferDialog } from '../../components/TransferDialog';
 
 interface SavingGoal {
   id: string;
   name: string;
   targetAmount: number;
   currentAmount: number;
-  deadline: string;
+  isCompleted: boolean;
   category: string;
-  notes: string;
+  transferType?: string;
+  purpose?: string;
   createdAt: string;
+  updatedAt: string;
 }
 
 export default function SavingGoalsPage() {
-  const { user } = useAuth();
+  const { user, forceRefreshUser } = useAuth();
   const { addToast } = useToast();
   const [isLoading, setIsLoading] = useState(true);
   const [savingGoals, setSavingGoals] = useState<SavingGoal[]>([]);
@@ -36,26 +39,74 @@ export default function SavingGoalsPage() {
     name: '',
     targetAmount: '',
     currentAmount: '0',
-    deadline: '',
     category: '',
-    notes: ''
+    transferType: '',
+    purpose: ''
   });
+  
+  // States for section balances
+  const [availableSavingsBalance, setAvailableSavingsBalance] = useState(0);
+  const [totalSavingsBalance, setTotalSavingsBalance] = useState(0);
+  const [showTransferDialog, setShowTransferDialog] = useState(false);
 
   // Common goal categories
   const goalCategories = [
-    'Emergency Fund', 'Vacation', 'Home Purchase', 'Education', 
-    'Retirement', 'Vehicle', 'Wedding', 'Other'
+    'EMERGENCY', 'VACATION', 'VEHICLE', 'HOME', 'EDUCATION', 'OTHER'
   ];
 
-  // Fetch saving goals
+  // Transfer type options
+  const transferTypes = [
+    'EXPENSE', 'INVESTMENT'
+  ];
+
+  // Handle contribution to a goal
+  const [showContributeDialog, setShowContributeDialog] = useState(false);
+  const [contributionAmount, setContributionAmount] = useState('');
+  const [contributingGoalId, setContributingGoalId] = useState<string | null>(null);
+  const [isContributing, setIsContributing] = useState(false);
+  
+  // Handle withdrawal from a goal
+  const [showWithdrawDialog, setShowWithdrawDialog] = useState(false);
+  const [withdrawAmount, setWithdrawAmount] = useState('');
+  const [withdrawingGoalId, setWithdrawingGoalId] = useState<string | null>(null);
+  const [withdrawingGoal, setWithdrawingGoal] = useState<SavingGoal | null>(null);
+  const [isWithdrawing, setIsWithdrawing] = useState(false);
+
+  // Fetch saving goals and section balance
   useEffect(() => {
     fetchSavingGoals();
+    fetchSectionBalance();
+    fetchUserProfile();
   }, [currentPage]);
+  
+  const fetchUserProfile = async () => {
+    try {
+      const response = await api.get('/users/profile');
+      if (response.data && response.data.data) {
+        setTotalSavingsBalance(response.data.data.savingsBalance || 0);
+      }
+    } catch (err) {
+      console.error('Error fetching user profile:', err);
+      addToast('Error loading savings balance', 'error');
+    }
+  };
+
+  const fetchSectionBalance = async () => {
+    try {
+      const response = await api.get('/sections');
+      if (response.data && response.data.savings !== undefined) {
+        setAvailableSavingsBalance(response.data.savings);
+      }
+    } catch (err) {
+      console.error('Error fetching section balance:', err);
+      addToast('Error loading savings balance', 'error');
+    }
+  };
 
   const fetchSavingGoals = async () => {
     try {
       setIsLoading(true);
-      const response = await api.get(`/goals?page=${currentPage}&limit=10`);
+      const response = await api.get(`/saving-goals?page=${currentPage}&limit=10`);
       const data = response.data;
       
       setSavingGoals(data.data || []);
@@ -81,8 +132,8 @@ export default function SavingGoalsPage() {
       return;
     }
 
-    if (!goalData.deadline) {
-      addToast('Please set a deadline', 'error');
+    if (!goalData.category) {
+      addToast('Please select a category', 'error');
       return;
     }
 
@@ -91,7 +142,7 @@ export default function SavingGoalsPage() {
       
       if (isEditing && editingId) {
         // Update existing goal
-        await api.put(`/goals/${editingId}`, {
+        await api.put(`/saving-goals/${editingId}`, {
           ...goalData,
           targetAmount: parseFloat(goalData.targetAmount),
           currentAmount: parseFloat(goalData.currentAmount || '0')
@@ -99,7 +150,7 @@ export default function SavingGoalsPage() {
         addToast('Saving goal updated successfully!', 'success');
       } else {
         // Create new goal - let backend handle any balance checks
-        await api.post('/goals', {
+        await api.post('/saving-goals', {
           ...goalData,
           targetAmount: parseFloat(goalData.targetAmount),
           currentAmount: parseFloat(goalData.currentAmount || '0')
@@ -112,9 +163,9 @@ export default function SavingGoalsPage() {
         name: '',
         targetAmount: '',
         currentAmount: '0',
-        deadline: '',
         category: '',
-        notes: ''
+        transferType: '',
+        purpose: ''
       });
       setIsEditing(false);
       setEditingId(null);
@@ -143,7 +194,7 @@ export default function SavingGoalsPage() {
     if (!goalToDelete) return;
 
     try {
-      await api.delete(`/goals/${goalToDelete}`);
+      await api.delete(`/saving-goals/${goalToDelete}`);
       addToast('Saving goal deleted successfully!', 'success');
       setShowDeleteDialog(false);
       setGoalToDelete(null);
@@ -159,9 +210,9 @@ export default function SavingGoalsPage() {
       name: goal.name,
       targetAmount: goal.targetAmount.toString(),
       currentAmount: goal.currentAmount.toString(),
-      deadline: new Date(goal.deadline).toISOString().split('T')[0],
       category: goal.category || '',
-      notes: goal.notes || ''
+      transferType: goal.transferType || '',
+      purpose: goal.purpose || ''
     });
     setIsEditing(true);
     setEditingId(goal.id);
@@ -194,42 +245,370 @@ export default function SavingGoalsPage() {
     }).format(date);
   };
 
-  // Calculate days remaining
-  const getDaysRemaining = (deadlineString: string) => {
-    const today = new Date();
-    const deadline = new Date(deadlineString);
-    const diffTime = deadline.getTime() - today.getTime();
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    return diffDays;
+  // Handle contribution to a goal
+  const handleContributeToGoal = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!contributingGoalId) return;
+    
+    if (!contributionAmount || parseFloat(contributionAmount) <= 0) {
+      addToast('Please enter a valid contribution amount', 'error');
+      return;
+    }
+
+    const amount = parseFloat(contributionAmount);
+    
+    // Check if there are enough funds
+    if (amount > availableSavingsBalance) {
+      addToast('Insufficient funds in savings balance', 'error');
+      return;
+    }
+
+    try {
+      setIsContributing(true);
+      
+      // Optimistically update the UI before API call
+      setAvailableSavingsBalance(prev => prev - amount);
+      
+      await api.post(`/saving-goals/${contributingGoalId}/contribute`, {
+        amount
+      });
+      
+      addToast('Contribution made successfully!', 'success');
+      setShowContributeDialog(false);
+      setContributionAmount('');
+      setContributingGoalId(null);
+      
+      // Refresh all data to ensure consistency
+      await Promise.all([
+        fetchSavingGoals(),
+        fetchSectionBalance(),
+        fetchUserProfile()
+      ]);
+    } catch (err: any) {
+      // If there's an error, revert the optimistic update
+      setAvailableSavingsBalance(prev => prev + amount);
+      
+      if (err.response?.data?.message) {
+        addToast(err.response.data.message, 'error');
+      } else {
+        addToast('Failed to make contribution. Please try again.', 'error');
+      }
+    } finally {
+      setIsContributing(false);
+    }
+  };
+
+  // Open contribute dialog
+  const openContributeDialog = (goalId: string) => {
+    setContributingGoalId(goalId);
+    setContributionAmount('');
+    setShowContributeDialog(true);
+  };
+  
+  // Handle transfer completion
+  const handleTransferComplete = async () => {
+    // Refresh section balance and user profile
+    await Promise.all([
+      fetchSectionBalance(),
+      fetchUserProfile()
+    ]);
+  };
+
+  // Handle withdrawal from a goal
+  const handleWithdrawFromGoal = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!withdrawingGoalId || !withdrawingGoal) return;
+    
+    if (!withdrawAmount || parseFloat(withdrawAmount) <= 0) {
+      addToast('Please enter a valid withdrawal amount', 'error');
+      return;
+    }
+    
+    if (withdrawingGoal && parseFloat(withdrawAmount) > withdrawingGoal.currentAmount) {
+      addToast('Withdrawal amount cannot exceed available goal balance', 'error');
+      return;
+    }
+
+    const amount = parseFloat(withdrawAmount);
+
+    try {
+      setIsWithdrawing(true);
+      
+      // Optimistically update the UI before API call
+      setAvailableSavingsBalance(prev => prev + amount);
+      
+      await api.post(`/saving-goals/${withdrawingGoalId}/transfer-to-savings`, {
+        amount
+      });
+      
+      addToast('Funds transferred to savings successfully!', 'success');
+      setShowWithdrawDialog(false);
+      setWithdrawAmount('');
+      setWithdrawingGoalId(null);
+      setWithdrawingGoal(null);
+      
+      // Refresh all data to ensure consistency
+      await Promise.all([
+        fetchSavingGoals(),
+        fetchSectionBalance(),
+        fetchUserProfile()
+      ]);
+    } catch (err: any) {
+      // If there's an error, revert the optimistic update
+      setAvailableSavingsBalance(prev => prev - amount);
+      
+      if (err.response?.data?.message) {
+        addToast(err.response.data.message, 'error');
+      } else {
+        addToast('Failed to transfer funds. Please try again.', 'error');
+      }
+    } finally {
+      setIsWithdrawing(false);
+    }
+  };
+
+  // Open withdraw dialog
+  const openWithdrawDialog = (goal: SavingGoal) => {
+    setWithdrawingGoalId(goal.id);
+    setWithdrawingGoal(goal);
+    setWithdrawAmount('');
+    setShowWithdrawDialog(true);
   };
 
   return (
-    <div>
-      <h1 className="text-2xl font-bold text-gray-900 mb-2">Saving Goals</h1>
-      <p className="text-gray-600 mb-6">Set and track your financial goals</p>
-
-      <div className="mb-6 flex justify-end">
-        <Button 
-          onClick={() => {
-            setGoalData({
-              name: '',
-              targetAmount: '',
-              currentAmount: '0',
-              deadline: '',
-              category: '',
-              notes: ''
-            });
-            setIsEditing(false);
-            setEditingId(null);
-            setShowAddEditDialog(true);
-          }}
-          variant="primary"
-        >
+    <div className="max-w-6xl mx-auto">
+      {/* Header and Balance in a more compact layout */}
+      <div className="mb-4 flex flex-col md:flex-row md:items-center md:justify-between">
+        <div className="mb-2 md:mb-0">
+          <h1 className="text-2xl font-bold text-gray-900">Saving Goals</h1>
+          <p className="text-gray-600 text-sm">Create and track progress toward your savings targets</p>
+        </div>
+        
+        <div className="flex flex-wrap items-center gap-3">
+          <Button
+            onClick={() => {
+              setGoalData({
+                name: '',
+                targetAmount: '',
+                currentAmount: '0',
+                category: '',
+                transferType: '',
+                purpose: ''
+              });
+              setIsEditing(false);
+              setEditingId(null);
+              setShowAddEditDialog(true);
+            }}
+            variant="primary"
+          >
+            <div className="flex items-center">
+              <Plus className="h-4 w-4 mr-1.5" />
+              New Goal
+            </div>
+          </Button>
+          
+          <Button
+            onClick={() => setShowTransferDialog(true)}
+            variant="outline"
+          >
+            <div className="flex items-center">
+              <ArrowLeftRight className="h-4 w-4 mr-1.5" />
+              Transfer
+            </div>
+          </Button>
+        </div>
+      </div>
+      
+      {/* Compact Balance Summary */}
+      <div className="mb-5 p-3 bg-white rounded-lg border border-gray-200 shadow-sm">
+        <div className="flex flex-wrap items-center justify-between gap-4">
           <div className="flex items-center">
-            <Plus className="h-4 w-4 mr-2" />
-            Add New Goal
+            <div className="bg-indigo-50 p-2 rounded-lg mr-3">
+              <PiggyBank className="h-5 w-5 text-indigo-600" />
+            </div>
+            <div>
+              <p className="text-sm text-gray-500">Total Savings</p>
+              <p className="text-xl font-bold text-indigo-600">{formatCurrency(totalSavingsBalance)}</p>
+            </div>
           </div>
-        </Button>
+          
+          <div className="flex items-center">
+            <div className="bg-emerald-50 p-2 rounded-lg mr-3">
+              <DollarSign className="h-5 w-5 text-emerald-600" />
+            </div>
+            <div>
+              <p className="text-sm text-gray-500">Available for Goals</p>
+              <p className="text-xl font-bold text-emerald-600">{formatCurrency(availableSavingsBalance)}</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Goals List - Given more prominence */}
+      <div className="mb-6">
+        <h2 className="text-xl font-semibold text-gray-800 mb-3">Your Saving Goals</h2>
+        
+        {isLoading ? (
+          <div className="p-6 text-center text-gray-500 bg-white rounded-xl shadow-sm border border-gray-200">
+            <div className="animate-pulse flex flex-col items-center">
+              <div className="h-12 w-12 bg-gray-200 rounded-full mb-4"></div>
+              <div className="h-4 bg-gray-200 rounded w-1/2 mb-2"></div>
+              <div className="h-4 bg-gray-200 rounded w-1/3"></div>
+            </div>
+          </div>
+        ) : savingGoals.length === 0 ? (
+          <div className="p-8 text-center text-gray-500 bg-white rounded-xl shadow-sm border border-gray-200">
+            <PiggyBank className="w-16 h-16 mx-auto mb-4 text-gray-300" />
+            <h3 className="text-lg font-medium mb-2">No saving goals yet</h3>
+            <p className="mb-6 max-w-md mx-auto">Start planning for your future by creating your first saving goal.</p>
+            <Button onClick={() => setShowAddEditDialog(true)}>
+              <Plus className="h-4 w-4 mr-2" />
+              Add New Goal
+            </Button>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+            {savingGoals.map((goal) => {
+              const progressPercent = calculateProgress(goal.currentAmount, goal.targetAmount);
+              
+              return (
+                <div key={goal.id} className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden hover:shadow-md transition-shadow">
+                  {/* Card Header */}
+                  <div className="p-4 flex justify-between items-center">
+                    <div className="flex-1 min-w-0">
+                      <h3 className="text-lg font-semibold text-gray-800 truncate">{goal.name}</h3>
+                      <div className="flex items-center mt-1">
+                        {goal.isCompleted ? (
+                          <span className="bg-green-100 text-green-800 text-xs px-2 py-0.5 rounded-full flex items-center">
+                            <Check className="h-3 w-3 mr-1" />
+                            Completed
+                          </span>
+                        ) : (
+                          <div className="flex items-center text-sm text-gray-500">
+                            <span className="font-medium mr-1">{progressPercent.toFixed(0)}%</span>
+                            <span>complete</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                    <div className="ml-4 flex space-x-1">
+                      <button
+                        onClick={() => handleEditGoal(goal)}
+                        className="p-1.5 rounded-full bg-gray-50 text-gray-500 hover:text-indigo-600 hover:bg-indigo-50"
+                        title="Edit goal"
+                      >
+                        <Pencil className="h-4 w-4" />
+                      </button>
+                      <button
+                        onClick={() => {
+                          setGoalToDelete(goal.id);
+                          setShowDeleteDialog(true);
+                        }}
+                        className="p-1.5 rounded-full bg-gray-50 text-gray-500 hover:text-red-600 hover:bg-red-50"
+                        title="Delete goal"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </div>
+                  </div>
+                  
+                  {/* Card Body */}
+                  <div className="px-4 pb-4">
+                    {/* Progress Bar - More visible */}
+                    <div className="mb-3">
+                      <div className="w-full bg-gray-100 rounded-full h-3">
+                        <div 
+                          className={`h-3 rounded-full ${
+                            progressPercent >= 100 
+                              ? 'bg-green-500' 
+                              : progressPercent > 50 
+                                ? 'bg-indigo-500' 
+                                : 'bg-indigo-400'
+                          }`}
+                          style={{ width: `${progressPercent}%` }}
+                        ></div>
+                      </div>
+                    </div>
+                    
+                    {/* Amount display */}
+                    <div className="flex justify-between items-center mb-4">
+                      <div>
+                        <div className="text-xs text-gray-500 mb-1">Current</div>
+                        <div className="text-lg font-medium">{formatCurrency(goal.currentAmount)}</div>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-xs text-gray-500 mb-1">Target</div>
+                        <div className="text-lg font-medium">{formatCurrency(goal.targetAmount)}</div>
+                      </div>
+                    </div>
+                    
+                    {/* Purpose - highlighted for importance */}
+                    {goal.purpose && (
+                      <div className="p-3 bg-gray-50 rounded-md mb-3">
+                        <p className="text-sm text-gray-700 italic line-clamp-2">
+                          "{goal.purpose}"
+                        </p>
+                      </div>
+                    )}
+                    
+                    {/* Categories */}
+                    {(goal.category || goal.transferType) && (
+                      <div className="flex flex-wrap gap-1.5 mb-3">
+                        {goal.category && (
+                          <span className="text-xs bg-gray-100 text-gray-700 px-2 py-0.5 rounded-full">
+                            {goal.category}
+                          </span>
+                        )}
+                        {goal.transferType && (
+                          <span className={`text-xs px-2 py-0.5 rounded-full ${
+                            goal.transferType === 'INVESTMENT' 
+                              ? 'bg-emerald-50 text-emerald-700' 
+                              : 'bg-purple-50 text-purple-700'
+                          }`}>
+                            {goal.transferType === 'INVESTMENT' ? 'Investment' : 'Expense'}
+                          </span>
+                        )}
+                      </div>
+                    )}
+                    
+                    {/* Action buttons */}
+                    <div className="mt-4 flex gap-2">
+                      {!goal.isCompleted ? (
+                        <>
+                          <Button 
+                            onClick={() => openContributeDialog(goal.id)}
+                            variant="outline"
+                            fullWidth
+                          >
+                            <DollarSign className="h-3.5 w-3.5 mr-1.5" />
+                            Add Funds
+                          </Button>
+                          {goal.currentAmount > 0 && (
+                            <Button 
+                              onClick={() => openWithdrawDialog(goal)}
+                              variant="outline"
+                              fullWidth
+                            >
+                              <ArrowLeftRight className="h-3.5 w-3.5 mr-1.5" />
+                              Withdraw
+                            </Button>
+                          )}
+                        </>
+                      ) : (
+                        <div className="w-full text-sm text-center p-2 bg-green-50 text-green-600 rounded-md flex items-center justify-center">
+                          <Check className="h-4 w-4 mr-1.5" />
+                          Goal completed!
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       {/* Add/Edit Goal Dialog */}
@@ -287,13 +666,19 @@ export default function SavingGoalsPage() {
                     </select>
                   </div>
                   
-                  <Input
-                    label="Target Date"
-                    type="date"
-                    value={goalData.deadline}
-                    onChange={(value) => setGoalData({ ...goalData, deadline: value })}
-                    required
-                  />
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Transfer Type</label>
+                    <select
+                      value={goalData.transferType}
+                      onChange={(e) => setGoalData({ ...goalData, transferType: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                    >
+                      <option value="">Select a transfer type</option>
+                      {transferTypes.map((type) => (
+                        <option key={type} value={type}>{type}</option>
+                      ))}
+                    </select>
+                  </div>
                 </div>
                 
                 {isEditing && (
@@ -309,10 +694,10 @@ export default function SavingGoalsPage() {
                 )}
                 
                 <div className="mb-4">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Notes</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Purpose</label>
                   <textarea
-                    value={goalData.notes}
-                    onChange={(e) => setGoalData({ ...goalData, notes: e.target.value })}
+                    value={goalData.purpose}
+                    onChange={(e) => setGoalData({ ...goalData, purpose: e.target.value })}
                     rows={3}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
                     placeholder="Why this goal is important to you"
@@ -381,174 +766,162 @@ export default function SavingGoalsPage() {
         </div>
       )}
 
-      {/* Goals List */}
-      {isLoading ? (
-        <div className="p-6 text-center text-gray-500 bg-white rounded-xl shadow-sm border border-gray-200">
-          Loading saving goals...
-        </div>
-      ) : savingGoals.length === 0 ? (
-        <div className="p-6 text-center text-gray-500 bg-white rounded-xl shadow-sm border border-gray-200">
-          <PiggyBank className="w-12 h-12 mx-auto mb-4 text-gray-400" />
-          <h3 className="text-lg font-medium mb-2">No saving goals yet</h3>
-          <p className="mb-4">Start planning for your future by creating your first saving goal.</p>
-          <Button onClick={() => setShowAddEditDialog(true)}>
-            <Plus className="h-4 w-4 mr-2" />
-            Add New Goal
-          </Button>
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {savingGoals.map((goal) => {
-            const progressPercent = calculateProgress(goal.currentAmount, goal.targetAmount);
-            const daysRemaining = getDaysRemaining(goal.deadline);
-            
-            return (
-              <div key={goal.id} className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden hover:shadow-md transition-shadow">
-                <div className="p-4 border-b border-gray-200 bg-gray-50 flex justify-between items-center">
-                  <h3 className="font-semibold text-gray-800 truncate">{goal.name}</h3>
-                  <div className="flex items-center space-x-2">
-                    <button
-                      onClick={() => handleEditGoal(goal)}
-                      className="p-1 text-indigo-600 hover:text-indigo-900"
-                    >
-                      <Pencil className="h-4 w-4" />
-                    </button>
-                    <button
-                      onClick={() => {
-                        setGoalToDelete(goal.id);
-                        setShowDeleteDialog(true);
-                      }}
-                      className="p-1 text-red-600 hover:text-red-900"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </button>
-                  </div>
+      {/* Contribute Dialog */}
+      {showContributeDialog && (
+        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50 flex items-center justify-center">
+          <div className="relative mx-auto p-5 w-full max-w-md bg-white rounded-xl shadow-lg">
+            <div className="mt-3">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold text-gray-800 flex items-center">
+                  <PiggyBank className="h-5 w-5 mr-2 text-indigo-600" />
+                  Contribute to Goal
+                </h3>
+                <button 
+                  onClick={() => setShowContributeDialog(false)}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+              
+              <form onSubmit={handleContributeToGoal}>
+                <div className="mb-4">
+                  <Input
+                    label="Contribution Amount"
+                    type="number"
+                    value={contributionAmount}
+                    onChange={setContributionAmount}
+                    required
+                    placeholder="0.00"
+                  />
+                  <p className="text-sm text-gray-500 mt-1">
+                    This amount will be taken from your savings balance.
+                  </p>
                 </div>
                 
-                <div className="p-4">
-                  <div className="mb-4">
-                    <div className="flex justify-between mb-1">
-                      <span className="text-sm text-gray-500">Progress</span>
-                      <span className="text-sm font-medium text-gray-700">{progressPercent.toFixed(0)}%</span>
-                    </div>
-                    <div className="w-full bg-gray-200 rounded-full h-2.5">
-                      <div 
-                        className={`h-2.5 rounded-full ${
-                          progressPercent >= 100 
-                            ? 'bg-green-600' 
-                            : progressPercent > 50 
-                              ? 'bg-indigo-600' 
-                              : 'bg-indigo-400'
-                        }`}
-                        style={{ width: `${progressPercent}%` }}
-                      ></div>
-                    </div>
-                  </div>
-                  
-                  <div className="grid grid-cols-2 gap-2 mb-4">
-                    <div className="bg-gray-50 p-2 rounded-lg">
-                      <div className="text-xs text-gray-500 mb-1">Current</div>
-                      <div className="font-semibold text-gray-800">
-                        {formatCurrency(goal.currentAmount)}
-                      </div>
-                    </div>
-                    <div className="bg-gray-50 p-2 rounded-lg">
-                      <div className="text-xs text-gray-500 mb-1">Target</div>
-                      <div className="font-semibold text-gray-800">
-                        {formatCurrency(goal.targetAmount)}
-                      </div>
-                    </div>
-                  </div>
-                  
-                  <div className="flex justify-between items-center mb-3">
-                    <div className="flex items-center text-sm text-gray-500">
-                      <Calendar className="h-4 w-4 mr-1" />
-                      {formatDate(goal.deadline)}
-                    </div>
-                    
-                    <div className={`text-xs font-medium px-2 py-1 rounded-full ${
-                      daysRemaining < 0 
-                        ? 'bg-red-100 text-red-800' 
-                        : daysRemaining < 30 
-                          ? 'bg-yellow-100 text-yellow-800' 
-                          : 'bg-green-100 text-green-800'
-                    }`}>
-                      {daysRemaining < 0 
-                        ? 'Overdue' 
-                        : daysRemaining === 0 
-                          ? 'Due today' 
-                          : `${daysRemaining} days left`}
-                    </div>
-                  </div>
-                  
-                  {goal.category && (
-                    <div className="mb-3">
-                      <span className="text-xs bg-indigo-50 text-indigo-700 px-2 py-1 rounded-full">
-                        {goal.category}
-                      </span>
-                    </div>
-                  )}
-                  
-                  {goal.notes && (
-                    <div className="text-sm text-gray-500 line-clamp-2">
-                      {goal.notes}
-                    </div>
-                  )}
-                </div>
-                
-                {/* Quick Action Button */}
-                <div className="px-4 py-3 bg-gray-50 border-t border-gray-200">
-                  <Button 
-                    onClick={() => handleEditGoal(goal)}
+                <div className="flex justify-end gap-3 mt-6">
+                  <Button
+                    type="button"
                     variant="outline"
-                    fullWidth
+                    onClick={() => setShowContributeDialog(false)}
                   >
-                    <DollarSign className="h-4 w-4 mr-2" />
-                    Update Progress
+                    Cancel
+                  </Button>
+                  
+                  <Button
+                    type="submit"
+                    loading={isContributing}
+                  >
+                    Contribute
                   </Button>
                 </div>
-              </div>
-            );
-          })}
+              </form>
+            </div>
+          </div>
         </div>
       )}
-      
-      {/* Pagination */}
+
+      {/* Withdraw Dialog */}
+      {showWithdrawDialog && withdrawingGoal && (
+        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50 flex items-center justify-center">
+          <div className="relative mx-auto p-5 w-full max-w-md bg-white rounded-xl shadow-lg">
+            <div className="mt-3">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold text-gray-800 flex items-center">
+                  <ArrowLeftRight className="h-5 w-5 mr-2 text-indigo-600" />
+                  Withdraw from Goal
+                </h3>
+                <button 
+                  onClick={() => setShowWithdrawDialog(false)}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+              
+              <form onSubmit={handleWithdrawFromGoal}>
+                <div className="mb-4">
+                  <p className="text-sm text-gray-600 mb-3">
+                    Withdrawing funds from: <span className="font-medium">{withdrawingGoal.name}</span>
+                  </p>
+                  <p className="text-sm text-gray-600 mb-3">
+                    Available balance: <span className="font-medium">{formatCurrency(withdrawingGoal.currentAmount)}</span>
+                  </p>
+                  <Input
+                    label="Withdrawal Amount"
+                    type="number"
+                    value={withdrawAmount}
+                    onChange={(value) => {
+                      const amount = parseFloat(value);
+                      if (!isNaN(amount) && withdrawingGoal && amount > withdrawingGoal.currentAmount) {
+                        setWithdrawAmount(withdrawingGoal.currentAmount.toString());
+                      } else {
+                        setWithdrawAmount(value);
+                      }
+                    }}
+                    required
+                    placeholder="0.00"
+                  />
+                  <p className="text-sm text-gray-500 mt-1">
+                    This amount will be returned to your savings balance.
+                  </p>
+                </div>
+                
+                <div className="flex justify-end gap-3 mt-6">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setShowWithdrawDialog(false)}
+                  >
+                    Cancel
+                  </Button>
+                  
+                  <Button
+                    type="submit"
+                    loading={isWithdrawing}
+                  >
+                    Withdraw
+                  </Button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Pagination - simplified */}
       {totalPages > 1 && (
         <div className="mt-6 flex justify-center">
-          <nav className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">
+          <div className="inline-flex rounded-md shadow-sm" aria-label="Pagination">
             <button
               onClick={() => setCurrentPage(currentPage > 1 ? currentPage - 1 : 1)}
               disabled={currentPage === 1}
-              className="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="relative inline-flex items-center px-3 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              <span className="sr-only">Previous</span>
-              &larr;
+              Previous
             </button>
-            {[...Array(totalPages)].map((_, i) => (
-              <button
-                key={i}
-                onClick={() => setCurrentPage(i + 1)}
-                className={`relative inline-flex items-center px-4 py-2 border border-gray-300 bg-white text-sm font-medium ${
-                  currentPage === i + 1
-                    ? 'z-10 bg-indigo-50 border-indigo-500 text-indigo-600'
-                    : 'text-gray-500 hover:bg-gray-50'
-                }`}
-              >
-                {i + 1}
-              </button>
-            ))}
+            <div className="relative inline-flex items-center px-4 py-2 border-t border-b border-gray-300 bg-white text-sm text-gray-700">
+              Page {currentPage} of {totalPages}
+            </div>
             <button
               onClick={() => setCurrentPage(currentPage < totalPages ? currentPage + 1 : totalPages)}
               disabled={currentPage === totalPages}
-              className="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="relative inline-flex items-center px-3 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              <span className="sr-only">Next</span>
-              &rarr;
+              Next
             </button>
-          </nav>
+          </div>
         </div>
       )}
+
+      {/* Transfer Dialog */}
+      <TransferDialog
+        isOpen={showTransferDialog}
+        onClose={() => setShowTransferDialog(false)}
+        fromSection="savings"
+        availableAmount={availableSavingsBalance}
+        onTransferComplete={handleTransferComplete}
+      />
     </div>
   );
 } 

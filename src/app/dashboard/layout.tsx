@@ -68,8 +68,8 @@ export default function DashboardLayout({
     { name: 'Income', href: '/dashboard/income', icon: <DollarSign className="w-5 h-5" /> },
     { name: 'Expenses', href: '/dashboard/expenses', icon: <CreditCard className="w-5 h-5" /> },
     { name: 'Investments', href: '/dashboard/investments', icon: <TrendingUp className="w-5 h-5" /> },
-    { name: 'Transactions', href: '/dashboard/transactions', icon: <ArrowLeftRight className="w-5 h-5" /> },
     { name: 'Saving Goals', href: '/dashboard/saving-goals', icon: <PiggyBank className="w-5 h-5" /> },
+    { name: 'Transactions', href: '/dashboard/transactions', icon: <ArrowLeftRight className="w-5 h-5" /> },
     { name: 'Settings', href: '/dashboard/settings', icon: <Settings className="w-5 h-5" /> },
   ];
 
