@@ -12,6 +12,10 @@ interface LoginData {
   password: string;
 }
 
+interface VerifyEmailData {
+  token: string;
+}
+
 export const authService = {
   async register(data: RegisterData) {
     try {
@@ -36,6 +40,19 @@ export const authService = {
         throw new Error(axiosError.response?.data?.message || 'Login failed');
       }
       throw new Error('Login failed');
+    }
+  },
+
+  async verifyEmail(data: VerifyEmailData) {
+    try {
+      const response = await api.post('/users/verify-email', data);
+      return response.data;
+    } catch (error: unknown) {
+      if (axios.isAxiosError(error)) {
+        const axiosError = error as AxiosError<{message?: string}>;
+        throw new Error(axiosError.response?.data?.message || 'Email verification failed');
+      }
+      throw new Error('Email verification failed');
     }
   },
 }; 

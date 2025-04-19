@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { Button } from '../../components/Button';
 import { Input } from '../../components/Input';
-import { PiggyBank, DollarSign, Pencil, Trash2, Plus, X, Calendar, Target, Check, AlertTriangle, ArrowLeftRight } from 'lucide-react';
+import { PiggyBank, DollarSign, Pencil, Trash2, Plus, X, Calendar, Target, Check, AlertTriangle, ArrowLeftRight, CreditCard, TrendingUp } from 'lucide-react';
 import api from '../../utils/axios';
 import { useToast } from '../../../components/ui/toast';
 import { TransferDialog } from '../../components/TransferDialog';
@@ -16,7 +16,7 @@ interface SavingGoal {
   currentAmount: number;
   isCompleted: boolean;
   category: string;
-  transferType?: string;
+  transferType?: 'EXPENSE' | 'INVESTMENT';
   purpose?: string;
   createdAt: string;
   updatedAt: string;
@@ -40,7 +40,7 @@ export default function SavingGoalsPage() {
     targetAmount: '',
     currentAmount: '0',
     category: '',
-    transferType: '',
+    transferType: 'expenses' as 'expenses' | 'investments',
     purpose: ''
   });
   
@@ -52,11 +52,6 @@ export default function SavingGoalsPage() {
   // Common goal categories
   const goalCategories = [
     'EMERGENCY', 'VACATION', 'VEHICLE', 'HOME', 'EDUCATION', 'OTHER'
-  ];
-
-  // Transfer type options
-  const transferTypes = [
-    'EXPENSE', 'INVESTMENT'
   ];
 
   // Handle contribution to a goal
@@ -140,21 +135,27 @@ export default function SavingGoalsPage() {
     try {
       setIsSubmitting(true);
       
+      // Convert transferType to backend format
+      const transferTypeFormatted = goalData.transferType === 'expenses' ? 'EXPENSE' : 'INVESTMENT';
+      
+      // Prepare the data to send
+      const dataToSend = {
+        ...goalData,
+        targetAmount: parseFloat(goalData.targetAmount),
+        currentAmount: parseFloat(goalData.currentAmount || '0'),
+        transferType: transferTypeFormatted
+      };
+      
+      // Log the exact data being sent to help with debugging
+      console.log('Submitting goal data:', dataToSend);
+      
       if (isEditing && editingId) {
         // Update existing goal
-        await api.put(`/saving-goals/${editingId}`, {
-          ...goalData,
-          targetAmount: parseFloat(goalData.targetAmount),
-          currentAmount: parseFloat(goalData.currentAmount || '0')
-        });
+        await api.put(`/saving-goals/${editingId}`, dataToSend);
         addToast('Saving goal updated successfully!', 'success');
       } else {
         // Create new goal - let backend handle any balance checks
-        await api.post('/saving-goals', {
-          ...goalData,
-          targetAmount: parseFloat(goalData.targetAmount),
-          currentAmount: parseFloat(goalData.currentAmount || '0')
-        });
+        await api.post('/saving-goals', dataToSend);
         addToast('Saving goal added successfully!', 'success');
       }
       
@@ -164,26 +165,89 @@ export default function SavingGoalsPage() {
         targetAmount: '',
         currentAmount: '0',
         category: '',
-        transferType: '',
+        transferType: 'expenses' as 'expenses' | 'investments',
         purpose: ''
       });
       setIsEditing(false);
       setEditingId(null);
       setShowAddEditDialog(false);
-      fetchSavingGoals();
+      
+      // Refresh all data
+      await Promise.all([
+        fetchSavingGoals(),
+        fetchSectionBalance(),
+        fetchUserProfile()
+      ]);
     } catch (err: any) {
       console.error('Error in goal form submission:', err);
       
-      // Check for insufficient funds error from backend
-      if (err.response && err.response.data && err.response.data.message) {
-        if (err.response.data.message.includes('Insufficient funds')) {
-          addToast('Saving goal cannot be created. Insufficient funds available.', 'warning');
-        } else {
-          addToast(err.response.data.message, 'error');
-        }
+      // More detailed error logging
+      if (err.response) {
+        console.error('Error response:', {
+          status: err.response.status,
+          data: err.response.data,
+          headers: err.response.headers
+        });
+        
+        // Log the request that was sent
+        console.error('Request that caused error:', {
+          method: err.config?.method,
+          url: err.config?.url,
+          data: err.config?.data
+        });
+      } else if (err.request) {
+        console.error('Error request:', err.request);
       } else {
-        addToast(`Failed to ${isEditing ? 'update' : 'add'} saving goal. Please try again.`, 'error');
+        console.error('Error message:', err.message);
       }
+      
+      // Check for specific error scenarios and provide helpful messages
+      if (err.response) {
+        if (err.response.status === 400 && err.response.data?.message) {
+          addToast(err.response.data.message, 'error');
+          return;
+        }
+        
+        if (err.response.status === 401) {
+          addToast('Authentication error. Please log in again.', 'error');
+          return;
+        }
+        
+        if (err.response.status === 403) {
+          addToast('You do not have permission to perform this action.', 'error');
+          return;
+        }
+        
+        if (err.response.status === 404) {
+          addToast('The requested resource was not found.', 'error');
+          return;
+        }
+        
+        if (err.response.status === 500) {
+          addToast('Server error. Please try again later.', 'error');
+          return;
+        }
+        
+        // Specific application errors
+        if (err.response.data && err.response.data.message) {
+          if (err.response.data.message.includes('Insufficient funds')) {
+            addToast('Saving goal cannot be created. Insufficient funds available.', 'warning');
+            return;
+          }
+          
+          addToast(err.response.data.message, 'error');
+          return;
+        }
+      }
+      
+      // Network issues
+      if (err.message && err.message.includes('Network Error')) {
+        addToast('Network error. Please check your internet connection.', 'error');
+        return;
+      }
+      
+      // Default fallback
+      addToast(`Failed to ${isEditing ? 'update' : 'add'} saving goal. Please try again.`, 'error');
     } finally {
       setIsSubmitting(false);
     }
@@ -198,7 +262,13 @@ export default function SavingGoalsPage() {
       addToast('Saving goal deleted successfully!', 'success');
       setShowDeleteDialog(false);
       setGoalToDelete(null);
-      fetchSavingGoals();
+      
+      // Refresh all data to ensure amounts are updated
+      await Promise.all([
+        fetchSavingGoals(),
+        fetchSectionBalance(),
+        fetchUserProfile()
+      ]);
     } catch (err) {
       addToast('Failed to delete saving goal. Please try again.', 'error');
     }
@@ -206,14 +276,22 @@ export default function SavingGoalsPage() {
 
   // Handle goal edit
   const handleEditGoal = (goal: SavingGoal) => {
+    console.log('Editing goal:', goal);
+    
+    // Convert backend format (EXPENSE/INVESTMENT) to frontend format (expenses/investments)
+    const normalizedTransferType = goal.transferType === 'EXPENSE' ? 'expenses' : 'investments';
+    
+    console.log('Normalized transferType:', normalizedTransferType);
+    
     setGoalData({
       name: goal.name,
       targetAmount: goal.targetAmount.toString(),
       currentAmount: goal.currentAmount.toString(),
       category: goal.category || '',
-      transferType: goal.transferType || '',
+      transferType: normalizedTransferType as 'expenses' | 'investments',
       purpose: goal.purpose || ''
     });
+    
     setIsEditing(true);
     setEditingId(goal.id);
     setShowAddEditDialog(true);
@@ -394,7 +472,7 @@ export default function SavingGoalsPage() {
                 targetAmount: '',
                 currentAmount: '0',
                 category: '',
-                transferType: '',
+                transferType: 'expenses',
                 purpose: ''
               });
               setIsEditing(false);
@@ -553,6 +631,19 @@ export default function SavingGoalsPage() {
                       </div>
                     )}
                     
+                    {/* Destination after completion */}
+                    <div className="flex items-center mb-3 text-sm">
+                      <ArrowLeftRight className="h-4 w-4 text-gray-500 mr-2" />
+                      <span className="text-gray-600">
+                        When completed, funds will be transferred to{' '}
+                        {goal.transferType === 'EXPENSE' ? (
+                          <span className="font-medium text-purple-700">Expenses</span>
+                        ) : (
+                          <span className="font-medium text-emerald-700">Investments</span>
+                        )}
+                      </span>
+                    </div>
+                    
                     {/* Categories */}
                     {(goal.category || goal.transferType) && (
                       <div className="flex flex-wrap gap-1.5 mb-3">
@@ -561,13 +652,16 @@ export default function SavingGoalsPage() {
                             {goal.category}
                           </span>
                         )}
-                        {goal.transferType && (
-                          <span className={`text-xs px-2 py-0.5 rounded-full ${
-                            goal.transferType === 'INVESTMENT' 
-                              ? 'bg-emerald-50 text-emerald-700' 
-                              : 'bg-purple-50 text-purple-700'
-                          }`}>
-                            {goal.transferType === 'INVESTMENT' ? 'Investment' : 'Expense'}
+                        {goal.transferType === 'EXPENSE' && (
+                          <span className="bg-purple-100 text-purple-800 text-xs px-2 py-0.5 rounded-full flex items-center">
+                            <CreditCard className="h-3 w-3 mr-1" />
+                            To Expenses
+                          </span>
+                        )}
+                        {goal.transferType === 'INVESTMENT' && (
+                          <span className="bg-emerald-100 text-emerald-800 text-xs px-2 py-0.5 rounded-full flex items-center">
+                            <TrendingUp className="h-3 w-3 mr-1" />
+                            To Investments
                           </span>
                         )}
                       </div>
@@ -667,17 +761,39 @@ export default function SavingGoalsPage() {
                   </div>
                   
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Transfer Type</label>
-                    <select
-                      value={goalData.transferType}
-                      onChange={(e) => setGoalData({ ...goalData, transferType: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-                    >
-                      <option value="">Select a transfer type</option>
-                      {transferTypes.map((type) => (
-                        <option key={type} value={type}>{type}</option>
-                      ))}
-                    </select>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Transfer Destination
+                    </label>
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setGoalData({ ...goalData, transferType: 'expenses' })}
+                        className={`p-2 rounded-md border ${
+                          goalData.transferType === 'expenses'
+                            ? 'border-purple-500 bg-purple-50 text-purple-700'
+                            : 'border-gray-300 hover:border-purple-300'
+                        }`}
+                      >
+                        <div className="flex flex-col items-center">
+                          <CreditCard className="h-5 w-5 mb-1" />
+                          <span className="text-xs">Expenses</span>
+                        </div>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setGoalData({ ...goalData, transferType: 'investments' })}
+                        className={`p-2 rounded-md border ${
+                          goalData.transferType === 'investments'
+                            ? 'border-emerald-500 bg-emerald-50 text-emerald-700'
+                            : 'border-gray-300 hover:border-emerald-300'
+                        }`}
+                      >
+                        <div className="flex flex-col items-center">
+                          <TrendingUp className="h-5 w-5 mb-1" />
+                          <span className="text-xs">Investments</span>
+                        </div>
+                      </button>
+                    </div>
                   </div>
                 </div>
                 

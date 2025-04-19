@@ -13,6 +13,13 @@ interface UserData {
   expensesPercent?: number;
   investmentsPercent?: number;
   leftoverAction?: 'savings' | 'expenses' | 'investments';
+  isEmailVerified?: boolean;
+  phoneNumber?: string;
+  address?: string;
+  age?: number;
+  gender?: string;
+  occupation?: string;
+  dateOfBirth?: string;
 }
 
 interface AuthContextType {
@@ -22,6 +29,8 @@ interface AuthContextType {
   login: (token: string) => void;
   logout: () => void;
   updateUserProfile: (userData: Partial<UserData>) => Promise<void>;
+  updateEmail: (newEmail: string) => Promise<void>;
+  deleteAccount: (password: string) => Promise<void>;
   forceRefreshUser: () => Promise<void>;
 }
 
@@ -92,6 +101,26 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   };
   
+  const updateEmail = async (newEmail: string) => {
+    try {
+      const response = await api.post('/users/update-email', { email: newEmail });
+      const updatedUser = response.data.data;
+      setUser(prev => prev ? { ...prev, ...updatedUser } : updatedUser);
+      return updatedUser;
+    } catch (error) {
+      throw error;
+    }
+  };
+  
+  const deleteAccount = async (password: string) => {
+    try {
+      await api.post('/users/delete-account', { password });
+      logout(); // Clear local auth state after successful deletion
+    } catch (error) {
+      throw error;
+    }
+  };
+  
   const forceRefreshUser = async () => {
     const freshUserData = await fetchUserData();
     if (freshUserData) {
@@ -108,6 +137,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       login, 
       logout, 
       updateUserProfile,
+      updateEmail,
+      deleteAccount,
       forceRefreshUser
     }}>
       {children}

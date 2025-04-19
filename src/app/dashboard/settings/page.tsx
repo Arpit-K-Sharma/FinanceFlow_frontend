@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
-import { Settings, Percent, PiggyBank, CreditCard, TrendingUp, AlertCircle, X, Check, Info, Wallet, Lock, Eye, EyeOff } from 'lucide-react';
+import { Settings, Percent, PiggyBank, CreditCard, TrendingUp, AlertCircle, X, Check, Info, Wallet, Lock, Eye, EyeOff, Mail } from 'lucide-react';
 import { useToast } from '../../../components/ui/toast';
 
 // Define types that match the UserData in AuthContext
@@ -22,7 +22,7 @@ interface PasswordForm {
 }
 
 export default function SettingsPage() {
-  const { user, updateUserProfile } = useAuth();
+  const { user, updateUserProfile, forceRefreshUser, updateEmail, deleteAccount } = useAuth();
   const { addToast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
   const [showMinimumDialog, setShowMinimumDialog] = useState(false);
@@ -46,6 +46,20 @@ export default function SettingsPage() {
     currentPassword: '',
     newPassword: '',
     confirmPassword: '',
+  });
+
+  // Add state for email change
+  const [newEmailForm, setNewEmailForm] = useState({
+    email: '',
+    isSubmitting: false
+  });
+
+  // Add state for account deletion
+  const [deleteAccountModal, setDeleteAccountModal] = useState({
+    isOpen: false,
+    password: '',
+    isSubmitting: false,
+    error: ''
   });
 
   // Initialize form with user data when available
@@ -80,6 +94,63 @@ export default function SettingsPage() {
       });
     }
   }, [user]);
+
+  // Add handler functions for email change
+  const handleEmailChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setNewEmailForm({
+      ...newEmailForm,
+      email: e.target.value
+    });
+  };
+
+  const handleEmailSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!newEmailForm.email) {
+      addToast('Email cannot be empty', 'error');
+      return;
+    }
+    
+    setNewEmailForm({ ...newEmailForm, isSubmitting: true });
+    
+    try {
+      await updateEmail(newEmailForm.email);
+      // Force refresh user data to show the updated email
+      await forceRefreshUser();
+      addToast('Email updated. Please check your new email address to verify it.', 'success');
+      setNewEmailForm({ email: '', isSubmitting: false });
+    } catch (err) {
+      addToast(err instanceof Error ? err.message : 'Failed to update email', 'error');
+      setNewEmailForm({ ...newEmailForm, isSubmitting: false });
+    }
+  };
+
+  // Add handler functions for account deletion
+  const handleDeleteAccount = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!deleteAccountModal.password) {
+      setDeleteAccountModal({
+        ...deleteAccountModal,
+        error: 'Password is required to delete your account'
+      });
+      return;
+    }
+    
+    setDeleteAccountModal({ ...deleteAccountModal, isSubmitting: true, error: '' });
+    
+    try {
+      await deleteAccount(deleteAccountModal.password);
+      // Will redirect automatically due to logout in authContext
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to delete account';
+      setDeleteAccountModal({
+        ...deleteAccountModal,
+        isSubmitting: false,
+        error: errorMessage
+      });
+    }
+  };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value, type } = e.target as HTMLInputElement;
@@ -241,13 +312,10 @@ export default function SettingsPage() {
                           (formData.investmentsPercent ?? 0));
 
   return (
-    <div>
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">Settings</h1>
-        <p className="text-gray-600 mt-1">Manage your income distribution and other preferences</p>
-      </div>
-
-      {/* Main Settings Grid */}
+    <div className="max-w-7xl mx-auto pb-16 space-y-8">
+      <h1 className="text-2xl font-bold text-gray-900 mb-6">Settings</h1>
+      
+      {/* Income Distribution Section */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
         {/* Income Distribution Setting Block */}
         <div 
@@ -451,20 +519,198 @@ export default function SettingsPage() {
         </div>
       </div>
 
-      {/* Add a note that explains the new save approach */}
-      {/* <div className="mt-6 bg-blue-50 rounded-lg p-4 border border-blue-100 shadow-sm">
-        <div className="flex items-start">
-          <Info className="h-5 w-5 text-blue-600 mt-0.5 mr-3 flex-shrink-0" />
-          <div>
-            <p className="text-sm text-blue-700">
-              Changes to your settings are saved automatically when you click "Save Changes" in each section.
-              Click on any section above to adjust its settings.
-            </p>
+      {/* Account Management Section */}
+      <div className="bg-white rounded-xl shadow-md border border-gray-200 overflow-hidden">
+        <div className="px-6 py-5 border-b border-gray-200 bg-gradient-to-r from-gray-50 to-indigo-50">
+          <h2 className="text-xl font-semibold text-gray-800">Account Management</h2>
+          <p className="text-sm text-gray-600 mt-1">Manage your account email and deletion options</p>
+        </div>
+
+        <div className="p-6 divide-y divide-gray-200">
+          {/* Email Change Section */}
+          <div className="pb-6">
+            <h3 className="text-lg font-medium text-gray-900 mb-4">Email Address</h3>
+            
+            <div className="bg-yellow-50 rounded-lg p-4 border border-yellow-100 mb-6">
+              <div className="flex items-start">
+                <AlertCircle className="h-5 w-5 text-yellow-600 mt-0.5 mr-3 flex-shrink-0" />
+                <div>
+                  <h4 className="text-sm font-medium text-yellow-800">Important</h4>
+                  <p className="text-sm text-yellow-700 mt-1">
+                    Changing your email will require verification of the new address. Your account will be marked as unverified until you complete this process.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="mb-6 flex items-center p-3 bg-gray-50 rounded-lg">
+              <Mail className="h-5 w-5 text-gray-500 mr-3" />
+              <div>
+                <p className="text-sm font-medium text-gray-700">Current Email</p>
+                <p className="text-sm text-gray-600">{user?.email}</p>
+              </div>
+              <div className="ml-auto">
+                {user?.isEmailVerified ? (
+                  <span className="bg-green-100 text-green-800 text-xs px-2 py-1 rounded-full flex items-center">
+                    <Check className="h-3 w-3 mr-1" />
+                    Verified
+                  </span>
+                ) : (
+                  <span className="bg-amber-100 text-amber-800 text-xs px-2 py-1 rounded-full flex items-center">
+                    <AlertCircle className="h-3 w-3 mr-1" />
+                    Unverified
+                  </span>
+                )}
+              </div>
+            </div>
+            
+            <form onSubmit={handleEmailSubmit}>
+              <div className="mb-4">
+                <label htmlFor="newEmail" className="block text-sm font-medium text-gray-900">
+                  New Email Address
+                </label>
+                <input
+                  type="email"
+                  name="newEmail"
+                  id="newEmail"
+                  value={newEmailForm.email}
+                  onChange={handleEmailChange}
+                  className="mt-1 block w-full px-3 py-2.5 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                  placeholder="new-email@example.com"
+                />
+              </div>
+              
+              <div className="flex justify-end">
+                <button
+                  type="submit"
+                  disabled={newEmailForm.isSubmitting}
+                  className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
+                >
+                  {newEmailForm.isSubmitting ? (
+                    <>
+                      <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                      Updating...
+                    </>
+                  ) : (
+                    'Update Email'
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+
+          {/* Account Deletion Section */}
+          <div className="pt-6">
+            <h3 className="text-lg font-medium text-red-600 mb-4">Delete Account</h3>
+            
+            <div className="bg-red-50 rounded-lg p-4 border border-red-100 mb-6">
+              <div className="flex items-start">
+                <AlertCircle className="h-5 w-5 text-red-600 mt-0.5 mr-3 flex-shrink-0" />
+                <div>
+                  <h4 className="text-sm font-medium text-red-800">Danger Zone</h4>
+                  <p className="text-sm text-red-700 mt-1">
+                    Deleting your account is permanent. All your data will be wiped from our system and cannot be recovered.
+                  </p>
+                </div>
+              </div>
+            </div>
+            
+            <div className="flex justify-center">
+              <button
+                onClick={() => setDeleteAccountModal({ ...deleteAccountModal, isOpen: true })}
+                className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+              >
+                Delete My Account
+              </button>
+            </div>
           </div>
         </div>
-      </div> */}
+      </div>
 
-      {/* Income Distribution Dialog */}
+      {/* Delete Account Modal */}
+      {deleteAccountModal.isOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg max-w-md w-full p-6 shadow-2xl relative">
+            <button 
+              onClick={() => setDeleteAccountModal({ ...deleteAccountModal, isOpen: false, password: '', error: '' })}
+              className="absolute top-3 right-3 text-gray-400 hover:text-gray-600"
+            >
+              <X className="h-5 w-5" />
+            </button>
+            
+            <div className="text-center mb-6">
+              <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-red-100 mb-4">
+                <AlertCircle className="h-6 w-6 text-red-600" />
+              </div>
+              <h3 className="text-lg font-medium text-gray-900">Confirm Account Deletion</h3>
+              <p className="text-sm text-gray-500 mt-2">
+                This action cannot be undone. All of your data will be permanently deleted.
+              </p>
+            </div>
+            
+            <form onSubmit={handleDeleteAccount}>
+              <div className="mb-4">
+                <label htmlFor="deletePassword" className="block text-sm font-medium text-gray-700">
+                  Enter your password to confirm
+                </label>
+                <div className="mt-1 relative rounded-md shadow-sm">
+                  <input 
+                    type={showCurrentPassword ? "text" : "password"}
+                    name="deletePassword" 
+                    id="deletePassword"
+                    value={deleteAccountModal.password}
+                    onChange={(e) => setDeleteAccountModal({ ...deleteAccountModal, password: e.target.value })}
+                    className="block w-full px-3 py-2.5 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                    placeholder="Your current password"
+                  />
+                  <button
+                    type="button"
+                    className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600"
+                    onClick={() => setShowCurrentPassword(!showCurrentPassword)}
+                  >
+                    {showCurrentPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                  </button>
+                </div>
+                {deleteAccountModal.error && (
+                  <p className="mt-2 text-sm text-red-600">{deleteAccountModal.error}</p>
+                )}
+              </div>
+              
+              <div className="mt-6 flex flex-col sm:flex-row sm:justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={() => setDeleteAccountModal({ ...deleteAccountModal, isOpen: false, password: '', error: '' })}
+                  className="inline-flex justify-center w-full sm:w-auto px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={deleteAccountModal.isSubmitting}
+                  className="inline-flex justify-center w-full sm:w-auto px-4 py-2 text-sm font-medium text-white bg-red-600 border border-transparent rounded-md shadow-sm hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 disabled:opacity-50"
+                >
+                  {deleteAccountModal.isSubmitting ? (
+                    <>
+                      <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                      Deleting...
+                    </>
+                  ) : (
+                    'Delete Account'
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Alerts/Dialogs */}
       {showIncomeDistributionDialog && (
         <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-lg max-w-3xl w-full max-h-[90vh] overflow-y-auto shadow-xl animate-fade-in">

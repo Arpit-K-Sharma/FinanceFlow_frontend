@@ -18,6 +18,7 @@ import {
   Wallet,
 } from "lucide-react"
 import { useAuth } from "../context/AuthContext"
+import { useRouter } from "next/navigation"
 
 interface SetupModalProps {
   isOpen: boolean
@@ -27,6 +28,7 @@ interface SetupModalProps {
 
 export const SetupModal = ({ isOpen, onClose, onSetupComplete }: SetupModalProps) => {
   const { updateUserProfile } = useAuth()
+  const router = useRouter()
   const [step, setStep] = useState(1)
   const [formData, setFormData] = useState({
     savingsPercent: 30,
@@ -210,10 +212,11 @@ export const SetupModal = ({ isOpen, onClose, onSetupComplete }: SetupModalProps
       await updateUserProfile(formData)
       setSuccess(true)
       
-      // Call onSetupComplete after a brief delay to show success message
-      setTimeout(() => {
-        onSetupComplete()
-      }, 1500)
+      // Call onSetupComplete immediately
+      onSetupComplete()
+      
+      // Use Next.js router for faster navigation
+      router.push('/dashboard/profile?fromSetup=true')
     } catch (err) {
       setError("Failed to save your preferences. Please try again.")
     } finally {
@@ -262,6 +265,7 @@ export const SetupModal = ({ isOpen, onClose, onSetupComplete }: SetupModalProps
                   </div>
                   <div className="ml-3">
                     <p className="text-sm text-green-700">Your preferences have been saved successfully!</p>
+                    <p className="text-sm text-green-700 mt-1">You'll be redirected to complete your profile information.</p>
                   </div>
                 </div>
               </div>

@@ -17,7 +17,8 @@ import {
   Menu, 
   X,
   User,
-  DollarSign
+  DollarSign,
+  FileText
 } from 'lucide-react';
 
 export default function DashboardLayout({
@@ -70,6 +71,7 @@ export default function DashboardLayout({
     { name: 'Investments', href: '/dashboard/investments', icon: <TrendingUp className="w-5 h-5" /> },
     { name: 'Saving Goals', href: '/dashboard/saving-goals', icon: <PiggyBank className="w-5 h-5" /> },
     { name: 'Transactions', href: '/dashboard/transactions', icon: <ArrowLeftRight className="w-5 h-5" /> },
+    { name: 'Reports', href: '/dashboard/reports', icon: <FileText className="w-5 h-5" /> },
     { name: 'Settings', href: '/dashboard/settings', icon: <Settings className="w-5 h-5" /> },
   ];
 

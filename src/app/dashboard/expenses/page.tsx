@@ -223,7 +223,12 @@ export default function ExpensesPage() {
       setIsEditing(false);
       setEditingId(null);
       setShowAddEditDialog(false);
+      
+      // Fetch updated expense list
       fetchExpenses();
+      
+      // Immediately fetch updated section balance after any operation
+      fetchSectionBalance();
     } catch (err: any) {
       console.error('Error in expense form submission:', err);
       
@@ -247,12 +252,29 @@ export default function ExpensesPage() {
     if (!expenseToDelete) return;
 
     try {
-      await api.delete(`/expenses/${expenseToDelete}`);
-      addToast('Expense deleted successfully!', 'success');
+      // Delete the expense and get the refund amount
+      const response = await api.delete(`/expenses/${expenseToDelete}`);
+      
+      // Update section balance immediately in the UI to reflect the deletion
+      if (response.data && response.data.refunded) {
+        // Increase the section balance by the refunded amount
+        setSectionBalance(prevBalance => prevBalance + response.data.refunded);
+        
+        // Show clear message about the amount refunded
+        addToast(`Expense deleted. $${response.data.refunded.toFixed(2)} has been returned to your expenses section.`, 'success');
+      } else {
+        addToast('Expense deleted successfully!', 'success');
+      }
+      
+      // Refresh expenses list
       setShowDeleteDialog(false);
       setExpenseToDelete(null);
       fetchExpenses();
+      
+      // After deletion, also refresh the section balance
+      fetchSectionBalance();
     } catch (err) {
+      console.error('Error deleting expense:', err);
       addToast('Failed to delete expense. Please try again.', 'error');
     }
   };
@@ -340,39 +362,58 @@ export default function ExpensesPage() {
         </div>
       </div>
       
-      {/* Compact Balance and Summary Cards */}
-      <div className="mb-5 p-3 bg-white rounded-lg border border-gray-200 shadow-sm">
-        <div className="flex flex-wrap items-center justify-between gap-4">
-          <div className="flex items-center">
-            <div className="bg-purple-50 p-2 rounded-lg mr-3">
-              <CreditCard className="h-5 w-5 text-purple-600" />
+      {/* Enhanced Balance and Summary Cards */}
+      <div className="mb-5 grid grid-cols-1 md:grid-cols-3 gap-4">
+        {/* Available Balance Card */}
+        <div className="bg-white rounded-xl border border-gray-200 shadow-sm hover:shadow-md transition-shadow p-6">
+          <div className="flex items-center mb-4">
+            <div className="bg-purple-100 p-3 rounded-lg mr-4">
+              <CreditCard className="h-6 w-6 text-purple-600" />
             </div>
             <div>
-              <p className="text-sm text-gray-500">Available for Expenses</p>
-              <p className="text-xl font-bold text-purple-600">{formatCurrency(sectionBalance)}</p>
+              <p className="text-sm font-medium text-gray-500">Available for Expenses</p>
+              <p className="text-2xl font-bold text-purple-600 mt-1">{formatCurrency(sectionBalance)}</p>
             </div>
           </div>
-          
-          <div className="flex gap-4">
-            <div className="flex items-center">
-              <div className="bg-blue-50 p-2 rounded-lg mr-3">
-                <Calendar className="h-5 w-5 text-blue-600" />
-              </div>
-              <div>
-                <p className="text-sm text-gray-500">Today</p>
-                <p className="text-xl font-bold text-blue-600">{isLoading ? '...' : formatCurrency(dailyTotal)}</p>
-              </div>
+          <div className="h-2 bg-purple-100 rounded-full overflow-hidden">
+            <div 
+              className="h-full bg-purple-500 rounded-full transition-all duration-500"
+              style={{ width: `${Math.min(100, (sectionBalance / 1000) * 100)}%` }}
+            ></div>
+          </div>
+        </div>
+        
+        {/* Daily Expenses Card */}
+        <div className="bg-white rounded-xl border border-gray-200 shadow-sm hover:shadow-md transition-shadow p-6">
+          <div className="flex items-center mb-4">
+            <div className="bg-blue-100 p-3 rounded-lg mr-4">
+              <Calendar className="h-6 w-6 text-blue-600" />
             </div>
-            
-            <div className="flex items-center">
-              <div className="bg-indigo-50 p-2 rounded-lg mr-3">
-                <Calendar className="h-5 w-5 text-indigo-600" />
-              </div>
-              <div>
-                <p className="text-sm text-gray-500">This Month</p>
-                <p className="text-xl font-bold text-indigo-600">{isLoading ? '...' : formatCurrency(monthlyTotal)}</p>
-              </div>
+            <div>
+              <p className="text-sm font-medium text-gray-500">Today's Expenses</p>
+              <p className="text-2xl font-bold text-blue-600 mt-1">{isLoading ? '...' : formatCurrency(dailyTotal)}</p>
             </div>
+          </div>
+          <div className="flex items-center text-sm text-gray-500">
+            <span className="inline-block w-2 h-2 bg-blue-500 rounded-full mr-2"></span>
+            {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}
+          </div>
+        </div>
+        
+        {/* Monthly Expenses Card */}
+        <div className="bg-white rounded-xl border border-gray-200 shadow-sm hover:shadow-md transition-shadow p-6">
+          <div className="flex items-center mb-4">
+            <div className="bg-indigo-100 p-3 rounded-lg mr-4">
+              <Calendar className="h-6 w-6 text-indigo-600" />
+            </div>
+            <div>
+              <p className="text-sm font-medium text-gray-500">This Month's Expenses</p>
+              <p className="text-2xl font-bold text-indigo-600 mt-1">{isLoading ? '...' : formatCurrency(monthlyTotal)}</p>
+            </div>
+          </div>
+          <div className="flex items-center text-sm text-gray-500">
+            <span className="inline-block w-2 h-2 bg-indigo-500 rounded-full mr-2"></span>
+            {new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
           </div>
         </div>
       </div>
