@@ -7,7 +7,11 @@
   --font-mono: var(--font-geist-mono);
 }
 
-
+/* Add chart color specific variables */
+:root {
+  --color-value: hsl(var(--chart-1));
+  --crypto-color: hsl(var(--chart-2));
+}
 
 @layer base {
   :root {
@@ -30,13 +34,14 @@
     --border: 214.3 31.8% 91.4%;
     --input: 214.3 31.8% 91.4%;
     --ring: 222.2 84% 4.9%;
-    --chart-1: 12 76% 61%;
-    --chart-2: 173 58% 39%;
-    --chart-3: 197 37% 24%;
-    --chart-4: 43 74% 66%;
-    --chart-5: 27 87% 67%;
+    --chart-1: 222.2 47.4% 11.2%;
+    --chart-2: 215 25% 27%;
+    --chart-3: 217 33% 17%;
+    --chart-4: 219 14% 28%;
+    --chart-5: 220 8% 23%;
     --radius: 0.5rem;
   }
+
   .dark {
     --background: 222.2 84% 4.9%;
     --foreground: 210 40% 98%;
@@ -57,20 +62,19 @@
     --border: 217.2 32.6% 17.5%;
     --input: 217.2 32.6% 17.5%;
     --ring: 212.7 26.8% 83.9%;
-    --chart-1: 220 70% 50%;
-    --chart-2: 160 60% 45%;
-    --chart-3: 30 80% 55%;
-    --chart-4: 280 65% 60%;
-    --chart-5: 340 75% 55%;
+    --chart-1: 210 20% 98%;
+    --chart-2: 215 16% 87%;
+    --chart-3: 214 32% 91%;
+    --chart-4: 212 25% 84%;
+    --chart-5: 213 27% 84%;
   }
 }
-
-
 
 @layer base {
   * {
     @apply border-border;
   }
+
   body {
     @apply bg-background text-foreground;
   }

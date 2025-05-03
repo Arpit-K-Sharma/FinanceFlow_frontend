@@ -532,15 +532,15 @@ export default function SettingsPage() {
             <h3 className="text-lg font-medium text-gray-900 mb-4">Email Address</h3>
             
             <div className="bg-yellow-50 rounded-lg p-4 border border-yellow-100 mb-6">
-              <div className="flex items-start">
+        <div className="flex items-start">
                 <AlertCircle className="h-5 w-5 text-yellow-600 mt-0.5 mr-3 flex-shrink-0" />
-                <div>
+          <div>
                   <h4 className="text-sm font-medium text-yellow-800">Important</h4>
                   <p className="text-sm text-yellow-700 mt-1">
                     Changing your email will require verification of the new address. Your account will be marked as unverified until you complete this process.
-                  </p>
-                </div>
-              </div>
+            </p>
+          </div>
+        </div>
             </div>
 
             <div className="mb-6 flex items-center p-3 bg-gray-50 rounded-lg">

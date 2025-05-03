@@ -32,6 +32,7 @@ import { SetupModal } from '../components/SetupModal';
 import { useToast } from '../../components/ui/toast';
 import { Button } from '../components/Button';
 import { ResponsiveContainer, BarChart, CartesianGrid, XAxis, YAxis, Bar, Tooltip as RechartsTooltip } from 'recharts';
+import { AIAssistantWidget } from '@/components/AIAssistantWidget';
 
 // Define interface for SavingGoal
 interface SavingGoal {
@@ -783,190 +784,202 @@ export default function DashboardPage() {
         />
       )}
 
-      {/* Financial Summary */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
-        {/* Total Balance Card - Larger and More Prominent */}
-        <div className="bg-gradient-to-r from-indigo-600 to-purple-600 rounded-xl shadow-lg p-6 text-white lg:col-span-2">
-          <div className="flex justify-between items-start mb-4">
-            <div>
-              <p className="text-indigo-100 text-sm font-medium mb-1">Total Balance</p>
-              <h2 className="text-3xl font-bold">{isLoading ? '...' : formatCurrency(totalBalance)}</h2>
-            </div>
-            <div className="bg-white/20 p-2 rounded-lg">
-              <LayoutDashboard className="h-6 w-6 text-white" />
-            </div>
+      {/* Total Balance Card - Full Width */}
+      <div className="bg-gradient-to-r from-indigo-600 to-purple-600 rounded-xl shadow-lg p-6 text-white mb-6">
+        <div className="flex justify-between items-start mb-4">
+          <div>
+            <p className="text-indigo-100 text-sm font-medium mb-1">Total Balance</p>
+            <h2 className="text-3xl font-bold">{isLoading ? '...' : formatCurrency(totalBalance)}</h2>
           </div>
-          
-          <div className="grid grid-cols-3 gap-4 mt-6">
-            {sectionCards.map((card) => (
-              <div key={card.title} className="bg-white/10 p-3 rounded-lg">
-                <div className="flex items-center mb-1">
-                  <span className="text-xs font-medium text-indigo-100">{card.title}</span>
-                </div>
-                <p className="text-white font-semibold truncate">{formatCurrency(card.amount)}</p>
-              </div>
-            ))}
+          <div className="bg-white/20 p-2 rounded-lg">
+            <LayoutDashboard className="h-6 w-6 text-white" />
           </div>
         </div>
-
-        {/* Income Overview Card */}
-        <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
-          <div className="flex justify-between items-start mb-5">
-            <div>
-              <p className="text-gray-500 text-sm font-medium">Available Income</p>
-              <h2 className="text-2xl font-bold text-gray-900">{formatCurrency(monthlyIncome)}</h2>
+        
+        <div className="grid grid-cols-3 gap-4 mt-6">
+          {sectionCards.map((card) => (
+            <div key={card.title} className="bg-white/10 p-3 rounded-lg">
+              <div className="flex items-center mb-1">
+                <span className="text-xs font-medium text-indigo-100">{card.title}</span>
+              </div>
+              <p className="text-white font-semibold truncate">{formatCurrency(card.amount)}</p>
             </div>
-            <div className="bg-green-50 p-2 rounded-lg">
-              <DollarSign className="h-6 w-6 text-green-600" />
-            </div>
-          </div>
-
-          <div className="space-y-4">
-            {user && (
-              <>
-                <div>
-                  <div className="flex justify-between text-sm mb-1">
-                    <span className="text-gray-500">Distribution Plan</span>
-                  </div>
-                  <div className="w-full h-2 bg-gray-100 rounded-full overflow-hidden">
-                    <div className="flex h-full">
-                      <div 
-                        className="bg-indigo-500" 
-                        style={{ width: `${user.savingsPercent || 0}%` }}
-                        title="Savings"
-                      ></div>
-                      <div 
-                        className="bg-purple-500" 
-                        style={{ width: `${user.expensesPercent || 0}%` }}
-                        title="Expenses"
-                      ></div>
-                      <div 
-                        className="bg-emerald-500" 
-                        style={{ width: `${user.investmentsPercent || 0}%` }}
-                        title="Investments"
-                      ></div>
-                    </div>
-                  </div>
-                  <div className="flex justify-between text-xs mt-1">
-                    <span className="text-indigo-600">Savings</span>
-                    <span className="text-purple-600">Expenses</span>
-                    <span className="text-emerald-600">Investments</span>
-                  </div>
-                </div>
-                
-                <div className="pt-3 border-t border-gray-100">
-                  <Link href="/dashboard/income">
-                    <button className="w-full flex items-center justify-center space-x-2 rounded-lg border border-gray-200 bg-white py-2 text-sm text-gray-600 hover:bg-gray-50 transition-colors">
-                      <DollarSign className="h-4 w-4" />
-                      <span>Add New Income</span>
-                    </button>
-                  </Link>
-                </div>
-              </>
-            )}
-          </div>
+          ))}
         </div>
       </div>
 
-      {/* Middle Section - Expense Charts */}
-      <div className="mt-8 mb-10">
-        <div className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-5 gap-4">
-            <h3 className="text-lg font-semibold text-gray-800">Expense Analysis</h3>
-            
-            <div className="flex items-center gap-2 bg-gray-100 p-1 rounded-full">
-              <button 
-                onClick={() => setExpenseTimeframe('month')} 
-                className={`px-3 py-1.5 text-xs font-medium rounded-full transition-colors ${
-                  expenseTimeframe === 'month' ? 'bg-white text-purple-700 shadow-sm' : 'text-gray-700 hover:bg-gray-200'
-                }`}
-              >
-                Monthly
-              </button>
-              <button 
-                onClick={() => setExpenseTimeframe('year')} 
-                className={`px-3 py-1.5 text-xs font-medium rounded-full transition-colors ${
-                  expenseTimeframe === 'year' ? 'bg-white text-purple-700 shadow-sm' : 'text-gray-700 hover:bg-gray-200'
-                }`}
-              >
-                Yearly
-              </button>
-            </div>
+      {/* Income Overview Card - Full Width */}
+      <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6 mb-6">
+        <div className="flex justify-between items-start mb-5">
+          <div>
+            <p className="text-gray-500 text-sm font-medium">Available Income</p>
+            <h2 className="text-2xl font-bold text-gray-900">{formatCurrency(monthlyIncome)}</h2>
           </div>
-          
-          {!hasExpensesForTimeframe ? (
-            <div className="h-64 md:h-80 flex flex-col items-center justify-center bg-gray-50 rounded-lg border border-gray-100">
-              <CreditCard className="h-12 w-12 text-gray-300 mb-4" />
-              <p className="text-gray-600 font-medium mb-2">No expenses found for {expenseTimeframe === 'month' ? 'this month' : 'this year'}</p>
-              <p className="text-sm text-gray-500 mb-4">Add some expenses to see your spending analysis</p>
-              <Link href="/dashboard/expenses">
-                <Button className="text-sm">
-                  Add New Expense
-                </Button>
-              </Link>
-            </div>
-          ) : (
+          <div className="bg-green-50 p-2 rounded-lg">
+            <DollarSign className="h-6 w-6 text-green-600" />
+          </div>
+        </div>
+
+        <div className="space-y-4">
+          {user && (
             <>
-              <div className="h-64 md:h-80">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart
-                    data={expenseChartData}
-                    margin={{ top: 10, right: 10, left: 10, bottom: 25 }}
-                  >
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f1f1" />
-                    <XAxis 
-                      dataKey={expenseTimeframe === 'month' ? 'day' : 'month'} 
-                      stroke="#9ca3af"
-                      fontSize={12}
-                    />
-                    <YAxis stroke="#9ca3af" fontSize={12} />
-                    <RechartsTooltip
-                      formatter={(value: number) => [`$${value}`, 'Expenses']}
-                      labelFormatter={(label: string | number) => {
-                        if (expenseTimeframe === 'month') return `Day ${label}`;
-                        return label;
-                      }}
-                    />
-                    <Bar dataKey="amount" name="Expenses" fill="#8b5cf6" radius={[4, 4, 0, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
+              <div>
+                <div className="flex justify-between text-sm mb-1">
+                  <span className="text-gray-500">Distribution Plan</span>
+                </div>
+                <div className="w-full h-2 bg-gray-100 rounded-full overflow-hidden">
+                  <div className="flex h-full">
+                    <div 
+                      className="bg-indigo-500" 
+                      style={{ width: `${user.savingsPercent || 0}%` }}
+                      title="Savings"
+                    ></div>
+                    <div 
+                      className="bg-purple-500" 
+                      style={{ width: `${user.expensesPercent || 0}%` }}
+                      title="Expenses"
+                    ></div>
+                    <div 
+                      className="bg-emerald-500" 
+                      style={{ width: `${user.investmentsPercent || 0}%` }}
+                      title="Investments"
+                    ></div>
+                  </div>
+                </div>
+                <div className="flex justify-between text-xs mt-1">
+                  <span className="text-indigo-600">Savings</span>
+                  <span className="text-purple-600">Expenses</span>
+                  <span className="text-emerald-600">Investments</span>
+                </div>
               </div>
               
-              <div className="mt-6 grid grid-cols-1 md:grid-cols-3 gap-5">
-                <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
-                  <h4 className="text-sm text-gray-600 mb-2">Total Expenses</h4>
-                  <p className="text-2xl font-bold text-purple-700">
-                    {formatCurrency(expenseChartData.reduce((sum, item) => sum + item.amount, 0))}
-                  </p>
-                </div>
-                
-                <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
-                  <h4 className="text-sm text-gray-600 mb-2">Average Per {expenseTimeframe === 'month' ? 'Day' : 'Month'}</h4>
-                  <p className="text-2xl font-bold text-purple-700">
-                    {formatCurrency(expenseChartData.reduce((sum, item) => sum + item.amount, 0) / expenseChartData.length)}
-                  </p>
-                </div>
-                
-                <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
-                  <h4 className="text-sm text-gray-600 mb-2">Highest Expense</h4>
-                  <p className="text-2xl font-bold text-purple-700">
-                    {formatCurrency(Math.max(...expenseChartData.map(item => item.amount)))}
-                  </p>
-                </div>
+              <div className="pt-3 border-t border-gray-100">
+                <Link href="/dashboard/income">
+                  <button className="w-full flex items-center justify-center space-x-2 rounded-lg border border-gray-200 bg-white py-2 text-sm text-gray-600 hover:bg-gray-50 transition-colors">
+                    <DollarSign className="h-4 w-4" />
+                    <span>Add New Income</span>
+                  </button>
+                </Link>
               </div>
             </>
           )}
+        </div>
+      </div>
+
+      {/* Expense Analysis - Full Width */}
+      <div className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm mb-6">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-5 gap-4">
+          <h3 className="text-lg font-semibold text-gray-800">Expense Analysis</h3>
           
-          <div className="mt-6 flex justify-center">
+          <div className="flex items-center gap-2 bg-gray-100 p-1 rounded-full">
+            <button 
+              onClick={() => setExpenseTimeframe('month')} 
+              className={`px-3 py-1.5 text-xs font-medium rounded-full transition-colors ${
+                expenseTimeframe === 'month' ? 'bg-white text-purple-700 shadow-sm' : 'text-gray-700 hover:bg-gray-200'
+              }`}
+            >
+              Monthly
+            </button>
+            <button 
+              onClick={() => setExpenseTimeframe('year')} 
+              className={`px-3 py-1.5 text-xs font-medium rounded-full transition-colors ${
+                expenseTimeframe === 'year' ? 'bg-white text-purple-700 shadow-sm' : 'text-gray-700 hover:bg-gray-200'
+              }`}
+            >
+              Yearly
+            </button>
+          </div>
+        </div>
+        
+        {!hasExpensesForTimeframe ? (
+          <div className="h-64 md:h-80 flex flex-col items-center justify-center bg-gray-50 rounded-lg border border-gray-100">
+            <CreditCard className="h-12 w-12 text-gray-300 mb-4" />
+            <p className="text-gray-600 font-medium mb-2">No expenses found for {expenseTimeframe === 'month' ? 'this month' : 'this year'}</p>
+            <p className="text-sm text-gray-500 mb-4">Add some expenses to see your spending analysis</p>
             <Link href="/dashboard/expenses">
-              <Button variant="outline" className="text-sm">
-                {hasExpensesForTimeframe ? 'View Detailed Expense Report' : 'Manage Expenses'}
+              <Button className="text-sm">
+                Add New Expense
               </Button>
             </Link>
           </div>
+        ) : (
+          <>
+            <div className="h-64 md:h-80">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart
+                  data={expenseChartData}
+                  margin={{ top: 10, right: 10, left: 10, bottom: 25 }}
+                >
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f1f1" />
+                  <XAxis 
+                    dataKey={expenseTimeframe === 'month' ? 'day' : 'month'} 
+                    stroke="#9ca3af"
+                    fontSize={12}
+                  />
+                  <YAxis stroke="#9ca3af" fontSize={12} />
+                  <RechartsTooltip
+                    formatter={(value: number) => [`$${value}`, 'Expenses']}
+                    labelFormatter={(label: string | number) => {
+                      if (expenseTimeframe === 'month') return `Day ${label}`;
+                      return label;
+                    }}
+                  />
+                  <Bar dataKey="amount" name="Expenses" fill="#8b5cf6" radius={[4, 4, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+            
+            <div className="mt-6 grid grid-cols-1 md:grid-cols-3 gap-5">
+              <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
+                <h4 className="text-sm text-gray-600 mb-2">Total Expenses</h4>
+                <p className="text-2xl font-bold text-purple-700">
+                  {formatCurrency(expenseChartData.reduce((sum, item) => sum + item.amount, 0))}
+                </p>
+              </div>
+              
+              <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
+                <h4 className="text-sm text-gray-600 mb-2">Average Per {expenseTimeframe === 'month' ? 'Day' : 'Month'}</h4>
+                <p className="text-2xl font-bold text-purple-700">
+                  {formatCurrency(expenseChartData.reduce((sum, item) => sum + item.amount, 0) / expenseChartData.length)}
+                </p>
+              </div>
+              
+              <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
+                <h4 className="text-sm text-gray-600 mb-2">Highest Expense</h4>
+                <p className="text-2xl font-bold text-purple-700">
+                  {formatCurrency(Math.max(...expenseChartData.map(item => item.amount)))}
+                </p>
+              </div>
+            </div>
+          </>
+        )}
+        
+        <div className="mt-6 flex justify-center">
+          <Link href="/dashboard/expenses">
+            <Button variant="outline" className="text-sm">
+              {hasExpensesForTimeframe ? 'View Detailed Expense Report' : 'Manage Expenses'}
+            </Button>
+          </Link>
         </div>
       </div>
-      
+
+      {/* Two Column Layout for Remaining Widgets */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 mb-6">
+        <div className="lg:col-span-8 space-y-6">
+          {/* Other widgets can stay here */}
+        </div>
+        
+        <div className="lg:col-span-4 space-y-6">
+          {/* Existing widgets like Financial Health, etc. */}
+          {/* ... */}
+        </div>
+      </div>
+
+      {/* AI Assistant Widget - Full Width */}
+      <div className="mb-6">
+        <AIAssistantWidget />
+      </div>
+
       {/* Bottom Section - Recent Activity and Goals */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Recent Transactions */}

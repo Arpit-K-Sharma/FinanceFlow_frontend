@@ -45,7 +45,7 @@ export const authService = {
 
   async verifyEmail(data: VerifyEmailData) {
     try {
-      const response = await api.post('/users/verify-email', data);
+      const response = await api.get(`/users/verify-email/${data.token}`);
       return response.data;
     } catch (error: unknown) {
       if (axios.isAxiosError(error)) {

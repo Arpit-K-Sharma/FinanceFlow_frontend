@@ -18,7 +18,8 @@ import {
   X,
   User,
   DollarSign,
-  FileText
+  FileText,
+  Bot
 } from 'lucide-react';
 
 export default function DashboardLayout({
@@ -72,6 +73,8 @@ export default function DashboardLayout({
     { name: 'Saving Goals', href: '/dashboard/saving-goals', icon: <PiggyBank className="w-5 h-5" /> },
     { name: 'Transactions', href: '/dashboard/transactions', icon: <ArrowLeftRight className="w-5 h-5" /> },
     { name: 'Reports', href: '/dashboard/reports', icon: <FileText className="w-5 h-5" /> },
+    { name: 'Markets', href: '/dashboard/markets', icon: <BarChart4 className="w-5 h-5" /> },
+    { name: 'AI Assistant', href: '/dashboard/assistant', icon: <Bot className="w-5 h-5" /> },
     { name: 'Settings', href: '/dashboard/settings', icon: <Settings className="w-5 h-5" /> },
   ];
 
@@ -102,12 +105,12 @@ export default function DashboardLayout({
             </Link>
           </div>
           
-          <nav className="flex-1 px-2 py-4 space-y-1 overflow-y-auto">
+          <nav className="flex-1 px-2 py-3 space-y-0.75 overflow-y-auto">
             {navItems.map((item) => (
               <Link
                 key={item.name}
                 href={item.href}
-                className="flex items-center px-4 py-3 text-gray-600 hover:bg-indigo-50 hover:text-indigo-700 rounded-lg transition-colors group"
+                className="flex items-center px-4 py-2.5 text-gray-600 hover:bg-indigo-50 hover:text-indigo-700 rounded-lg transition-colors group"
               >
                 <span className="text-gray-500 group-hover:text-indigo-600 mr-3">
                   {item.icon}
@@ -117,11 +120,11 @@ export default function DashboardLayout({
             ))}
           </nav>
           
-          <div className="p-4 border-t border-gray-200">
+          <div className="p-3 border-t border-gray-200">
             {user && (
               <Link href="/dashboard/profile">
-                <div className="flex items-center space-x-3 mb-4 cursor-pointer hover:bg-indigo-50 p-2 rounded-lg transition-colors">
-                  <div className="w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center">
+                <div className="flex items-center space-x-2.5 mb-3 cursor-pointer hover:bg-indigo-50 p-2 rounded-lg transition-colors">
+                  <div className="w-9 h-9 rounded-full bg-indigo-100 flex items-center justify-center">
                     <span className="text-indigo-700 font-medium">
                       {user.name?.charAt(0).toUpperCase() || 'U'}
                     </span>
